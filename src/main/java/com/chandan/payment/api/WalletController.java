@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -29,6 +30,12 @@ public class WalletController {
             @RequestParam String accountNumber,
             @RequestParam(defaultValue = "1000.00") BigDecimal initialBalance,
             @RequestParam(defaultValue = "INR") String currency) {
+
+        // If wallet already exists for this account number, return it idempotently
+        Optional<Wallet> existing = walletRepository.findByAccountNumber(accountNumber);
+        if (existing.isPresent()) {
+            return ResponseEntity.ok(WalletDTO.from(existing.get()));
+        }
 
         Wallet wallet = Wallet.builder()
                 .ownerName(ownerName)

@@ -865,7 +865,8 @@
                     await refreshBalances();
                     await refreshLedger();
                 } else {
-                    log(`✗ [REJECTED] Status ${res.status}: ${data.message || 'Error'}`, 'error');
+                    const errMsg = data.message || (data.fieldErrors ? JSON.stringify(data.fieldErrors) : (data.error || 'Bad Request'));
+                    log(`✗ [REJECTED] Status ${res.status}: ${errMsg}`, 'error');
                 }
             } catch (e) {
                 log('Network exception: ' + e.message, 'error');
@@ -916,7 +917,8 @@
                     document.getElementById('metricConflictsBlocked').textContent = racesBlockedCount;
                     log(`Burst Probe #${res.idx} -> 409 CONFLICT (Blocked concurrent duplicate execution by lease lock)`, 'warn');
                 } else {
-                    log(`Burst Probe #${res.idx} -> Status ${res.status}`, 'error');
+                    const detail = res.data && (res.data.message || (res.data.fieldErrors ? JSON.stringify(res.data.fieldErrors) : res.data.error));
+                    log(`Burst Probe #${res.idx} -> Status ${res.status}: ${detail || 'Rejected'}`, 'error');
                 }
             });
 
