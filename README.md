@@ -4,50 +4,51 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.0-red.svg)](https://redis.io/)
-[![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-black.svg)](https://kafka.apache.org/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7.svg?style=flat&logo=render)](https://distributed-payment-ledger.onrender.com/)
 
 An enterprise-grade, high-throughput financial payment and ledger microservice engineered to guarantee **strict zero-drift double-entry balance consistency**, **idempotent transaction processing**, and **reliable event dissemination** across distributed nodes.
+
+🎮 **Live Interactive Stress-Testing Console:** [https://distributed-payment-ledger.onrender.com/](https://distributed-payment-ledger.onrender.com/)
 
 Designed following real-world architectural patterns utilized in Tier-1 payment processing networks (Visa, Amazon, Razorpay).
 
 ---
 
-## 🏗️ Architectural Core
+## 🏗️ System Architecture & Execution Flow
 
-```
-                         [ HTTP POST /v1/payments ]
-                          Header: Idempotency-Key
-                                     │
-                                     ▼
-                   ┌──────────────────────────────────┐
-                   │  Redis Idempotency & Lease Guard │
-                   └─────────────────┬────────────────┘
-                                     │ (Lock acquired)
-                                     ▼
-                   ┌──────────────────────────────────┐
-                   │   Redisson MultiLock Manager     │
-                   │ (Sorted Wallet IDs - No Deadlock)│
-                   └─────────────────┬────────────────┘
-                                     │
-                                     ▼
-                   ┌──────────────────────────────────┐
-                   │     Spring @Transactional        │
-                   │  - Wallet Balance & @Version     │
-                   │  - Balanced Ledger (Debit/Credit)│
-                   │  - Transactional Outbox Event    │
-                   └─────────────────┬────────────────┘
-                                     │
-                                     ▼
-                        PostgreSQL Database (ACID)
-                                     │
-                                     ▼
-                   ┌──────────────────────────────────┐
-                   │ Outbox Poller & Kafka Publisher  │
-                   │     (Retries + DLQ Handling)     │
-                   └─────────────────┬────────────────┘
-                                     │
-                                     ▼
-                         Apache Kafka Event Bus
+```mermaid
+flowchart TD
+    Client(["🌐 Client / Payment Gateway"]) -->|"POST /v1/payments<br/>[Header: Idempotency-Key]"| API["⚡ Spring Boot 3.3 Engine<br/>(Java 21 Loom Virtual Threads)"]
+    
+    subgraph S1 ["1. Idempotency & Concurrency Guard"]
+        API -->|"SET NX EX (Lease Check)"| RedisLock["🔴 Redis Cache<br/>(Idempotency Key Guard)"]
+        RedisLock -->|"Key Exists (In-Flight)"| Err409["⛔ 409 Conflict<br/>(Prevents Double Execution)"]
+        RedisLock -->|"Key Cached"| CachedRet["⚡ Instant Cached 200 OK<br/>(Idempotent Replay)"]
+        RedisLock -->|"Lease Acquired"| MultiLock["🔒 Redisson MultiLock<br/>(Deterministic Sorted Wallet IDs)"]
+    end
+    
+    subgraph S2 ["2. Atomic Ledger Transaction (@Transactional)"]
+        MultiLock -->|"Execute Transfer"| TxBlock["🏦 Database Transaction"]
+        TxBlock -->|"Optimistic Lock (@Version)"| Wallets[("Wallets Balance Update")]
+        TxBlock -->|"Balanced Zero-Sum Pairs"| Ledger[("Double-Entry Ledger<br/>DEBIT Source / CREDIT Dest")]
+        TxBlock -->|"Same Atomic Commit"| Outbox[("Transactional Outbox<br/>outbox_events Table")]
+    end
+    
+    subgraph S3 ["3. Reliable Event Dissemination"]
+        Outbox -->|"Polling Publisher"| EventPublisher["📡 Outbox Poller Service"]
+        EventPublisher -->|"Publish Event"| Kafka["📦 Apache Kafka<br/>topic: payment.events.v1"]
+        EventPublisher -->|"Poison Pill (>5 retries)"| DLQ["💀 Dead Letter Queue (DLQ)<br/>topic: payment.events.v1.dlq"]
+    end
+
+    classDef primary fill:#1e1e2e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef storage fill:#181825,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef alert fill:#313244,stroke:#f38ba8,stroke-width:2px,color:#f38ba8;
+    classDef success fill:#313244,stroke:#a6e3a1,stroke-width:2px,color:#a6e3a1;
+
+    class API,MultiLock,EventPublisher primary;
+    class RedisLock,Wallets,Ledger,Outbox,Kafka storage;
+    class Err409,DLQ alert;
+    class CachedRet success;
 ```
 
 ### 1. Exactly-Once Idempotency Guarantees
