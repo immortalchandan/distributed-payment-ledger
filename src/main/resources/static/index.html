@@ -484,8 +484,9 @@
 
         async function simulateDuplicateBurst() {
             const burstKey = 'burst-' + Math.random().toString(36).substring(2, 9);
+            const amount = parseFloat(document.getElementById('transferAmount').value) || 100.00;
             document.getElementById('idempotencyKey').value = burstKey;
-            log(`⚡ SIMULATING CONCURRENT BURST: Firing 5 simultaneous requests with identical key: ${burstKey}`, 'warn');
+            log(`⚡ SIMULATING CONCURRENT BURST: Firing 5 simultaneous requests with identical key: ${burstKey} and Amount: ₹${amount}`, 'warn');
 
             const promises = [1, 2, 3, 4, 5].map(idx => 
                 fetch('/v1/payments', {
@@ -497,7 +498,7 @@
                     body: JSON.stringify({
                         sourceWalletId: sourceWalletId,
                         destinationWalletId: destWalletId,
-                        amount: 100.00,
+                        amount: amount,
                         currency: 'INR',
                         description: 'Burst hit #' + idx
                     })
