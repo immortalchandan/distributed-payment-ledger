@@ -765,22 +765,34 @@
             try {
                 // Initialize Alice
                 const r1 = await fetch('/v1/wallets?ownerName=Alice&accountNumber=ACC-001&initialBalance=5000.00&currency=INR', { method: 'POST' });
+                if (!r1.ok) {
+                    throw new Error(`Server returned HTTP ${r1.status} while creating Alice's wallet`);
+                }
                 const w1 = await r1.json();
+                if (!w1 || !w1.id) {
+                    throw new Error("Invalid wallet response for Alice: " + JSON.stringify(w1));
+                }
                 sourceWalletId = w1.id;
-                document.getElementById('sourceAcc').textContent = w1.accountNumber + ' • ' + w1.id.substring(0, 8);
+                document.getElementById('sourceAcc').textContent = (w1.accountNumber || 'ACC-001') + ' • ' + String(w1.id).substring(0, 8);
                 document.getElementById('sourceBalance').textContent = '₹' + Number(w1.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
                 // Initialize Bob
                 const r2 = await fetch('/v1/wallets?ownerName=Bob&accountNumber=ACC-002&initialBalance=1000.00&currency=INR', { method: 'POST' });
+                if (!r2.ok) {
+                    throw new Error(`Server returned HTTP ${r2.status} while creating Bob's wallet`);
+                }
                 const w2 = await r2.json();
+                if (!w2 || !w2.id) {
+                    throw new Error("Invalid wallet response for Bob: " + JSON.stringify(w2));
+                }
                 destWalletId = w2.id;
-                document.getElementById('destAcc').textContent = w2.accountNumber + ' • ' + w2.id.substring(0, 8);
+                document.getElementById('destAcc').textContent = (w2.accountNumber || 'ACC-002') + ' • ' + String(w2.id).substring(0, 8);
                 document.getElementById('destBalance').textContent = '₹' + Number(w2.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
                 log('Initialized Demo Entities: Alice Corp (₹5,000.00) & Bob Global (₹1,000.00)', 'success');
                 refreshLedger();
             } catch (e) {
-                log('Failed to connect to backend engine: ' + e.message, 'error');
+                log('Initialization error: ' + e.message, 'error');
             }
         }
 
