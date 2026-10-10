@@ -13,9 +13,6 @@ java {
 	}
 }
 
-repositories {
-	mavenCentral()
-}
 
 dependencies {
 	// Spring Boot Starters

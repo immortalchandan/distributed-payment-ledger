@@ -1,2 +1,17 @@
-rootProject.name = 'distributed-payment-ledger'
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { url 'https://repo.spring.io/release' }
+    }
+}
 
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        mavenCentral()
+        maven { url 'https://repo.spring.io/release' }
+    }
+}
+
+rootProject.name = 'distributed-payment-ledger'
