@@ -3,8 +3,10 @@ package com.chandan.payment.service;
 import com.chandan.payment.config.KafkaConfig;
 import com.chandan.payment.domain.model.OutboxEvent;
 import com.chandan.payment.domain.repository.OutboxEventRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,14 +17,25 @@ import java.time.Instant;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class OutboxPublisher {
+
+    private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
 
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final boolean isStandaloneDemo;
 
     private static final int MAX_RETRIES = 5;
+
+    @Autowired
+    public OutboxPublisher(
+            OutboxEventRepository outboxEventRepository,
+            @Autowired(required = false) KafkaTemplate<String, String> kafkaTemplate,
+            @Value("${payment.standalone-demo.enabled:false}") boolean isStandaloneDemo) {
+        this.outboxEventRepository = outboxEventRepository;
+        this.kafkaTemplate = kafkaTemplate;
+        this.isStandaloneDemo = isStandaloneDemo;
+    }
 
     @Scheduled(fixedDelayString = "${payment.outbox.poll-rate-ms:1000}")
     @Transactional
@@ -33,6 +46,16 @@ public class OutboxPublisher {
         }
 
         for (OutboxEvent event : pendingEvents) {
+            if (isStandaloneDemo || kafkaTemplate == null) {
+                // In demo mode without Kafka, simulate instant broker acknowledgement
+                event.setStatus(OutboxEvent.EventStatus.PROCESSED);
+                event.setProcessedAt(Instant.now());
+                outboxEventRepository.save(event);
+                log.info("[Standalone Demo] Event {} (type: {}) acknowledged and settled locally",
+                        event.getId(), event.getEventType());
+                continue;
+            }
+
             try {
                 kafkaTemplate.send(KafkaConfig.PAYMENT_EVENTS_TOPIC, event.getAggregateId(), event.getPayload())
                         .whenComplete((result, ex) -> {
@@ -59,8 +82,9 @@ public class OutboxPublisher {
 
         if (retries >= MAX_RETRIES) {
             event.setStatus(OutboxEvent.EventStatus.FAILED);
-            // Publish to Dead Letter Queue (DLQ)
-            kafkaTemplate.send(KafkaConfig.PAYMENT_DLQ_TOPIC, event.getAggregateId(), event.getPayload());
+            if (kafkaTemplate != null) {
+                kafkaTemplate.send(KafkaConfig.PAYMENT_DLQ_TOPIC, event.getAggregateId(), event.getPayload());
+            }
             log.warn("Moved outbox event {} to DLQ after {} failed attempts", event.getId(), retries);
         }
         outboxEventRepository.save(event);

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Idempotent Payment & Ledger Engine — Live Interactive Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #121826;
+            --card-bg: #182234;
+            --border: #233147;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --accent: #10b981;
+            --accent-danger: #ef4444;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .header {
+            max-width: 1300px;
+            margin: 0 auto 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        .badge-bar {
+            display: flex;
+            gap: 8px;
+        }
+
+        .badge {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #38bdf8;
+            font-family: var(--font-mono);
+        }
+
+        .layout-grid {
+            max-width: 1300px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 960px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #f8fafc;
+        }
+
+        .wallets-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .wallet-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            position: relative;
+        }
+
+        .wallet-box.source {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .wallet-box.dest {
+            border-left: 4px solid #10b981;
+        }
+
+        .wallet-box h3 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .wallet-box .balance {
+            font-family: var(--font-mono);
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 8px 0;
+            color: #ffffff;
+        }
+
+        .wallet-box .acc-num {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: #1e293b;
+        }
+
+        .log-terminal {
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            height: 380px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .log-line {
+            margin-bottom: 6px;
+            word-break: break-all;
+        }
+
+        .log-line.success { color: #34d399; }
+        .log-line.replay { color: #38bdf8; font-weight: bold; }
+        .log-line.warn { color: #f59e0b; }
+        .log-line.error { color: #f87171; }
+
+        .ledger-table-wrap {
+            margin-top: 14px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+        }
+
+        th {
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            text-align: left;
+            padding: 8px 12px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #1f293d;
+        }
+
+        .badge-debit { color: #ef4444; font-weight: bold; }
+        .badge-credit { color: #10b981; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div>
+            <h1>Payment & Ledger Engine Console</h1>
+            <p>Live Interactive Verification Demo — Distributed Locking & Double-Entry Invariance</p>
+        </div>
+        <div class="badge-bar">
+            <span class="badge">JAVA 21 LOOM</span>
+            <span class="badge">SPRING BOOT 3</span>
+            <span class="badge">DOUBLE-ENTRY LEDGER</span>
+            <span class="badge">IDEMPOTENCY: ACTIVE</span>
+        </div>
+    </header>
+
+    <div class="layout-grid">
+        <!-- Interactive Control Panel -->
+        <div class="card">
+            <h2>⚡ Live Transaction Simulator</h2>
+
+            <div class="wallets-container">
+                <div class="wallet-box source">
+                    <h3>Source Wallet (Alice)</h3>
+                    <div class="balance" id="sourceBalance">₹5,000.00</div>
+                    <div class="acc-num" id="sourceAcc">ACC-001 (Loading...)</div>
+                </div>
+                <div class="wallet-box dest">
+                    <h3>Destination Wallet (Bob)</h3>
+                    <div class="balance" id="destBalance">₹1,000.00</div>
+                    <div class="acc-num" id="destAcc">ACC-002 (Loading...)</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Transfer Amount (INR)</label>
+                <input type="number" id="transferAmount" class="form-control" value="250.00" step="50" min="1">
+            </div>
+
+            <div class="form-group">
+                <label>Idempotency-Key (UUID)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="idempotencyKey" class="form-control" value="idem-key-8392104-prod" readonly>
+                    <button class="btn btn-secondary" onclick="generateNewKey()" style="flex: 0 0 130px;">New Key</button>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="executePayment()">🚀 Execute Transfer</button>
+                <button class="btn btn-danger" onclick="simulateDuplicateBurst()">⚡ Duplicate Burst (Race Test)</button>
+            </div>
+            
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 14px;">
+                💡 <b>Try this:</b> Click <b>Execute Transfer</b> once, then click it again <i>without changing the Idempotency Key</i> to watch the safe zero-duplicate replay in action!
+            </p>
+
+            <h2 style="margin-top: 24px; font-size: 1rem;">📜 Live Double-Entry Audit Trail</h2>
+            <div class="ledger-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Wallet</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Balance After</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledgerTableBody">
+                        <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No transactions recorded yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Terminal & Audit Log -->
+        <div class="card">
+            <h2>🖥️ Real-Time Engine Log Stream</h2>
+            <div class="log-terminal" id="terminalLog">
+                <div class="log-line success">[ENGINE READY] Initialized Distributed Payment Engine on port 8080</div>
+                <div class="log-line">[SYSTEM] Idempotency lease manager active</div>
+                <div class="log-line">[SYSTEM] Double-Entry Ledger auditor active</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sourceWalletId = null;
+        let destWalletId = null;
+
+        function log(msg, type = '') {
+            const term = document.getElementById('terminalLog');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = 'log-line ' + type;
+            div.textContent = `[${time}] ${msg}`;
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function generateNewKey() {
+            const key = 'idem-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now().toString(36);
+            document.getElementById('idempotencyKey').value = key;
+            log('Generated new client Idempotency-Key: ' + key);
+        }
+
+        async function initWallets() {
+            try {
+                // Initialize Alice
+                const r1 = await fetch('/v1/wallets?ownerName=Alice&accountNumber=ACC-001&initialBalance=5000.00&currency=INR', { method: 'POST' });
+                const w1 = await r1.json();
+                sourceWalletId = w1.id;
+                document.getElementById('sourceAcc').textContent = w1.accountNumber + ' (' + w1.id.substring(0, 8) + '...)';
+                document.getElementById('sourceBalance').textContent = '₹' + Number(w1.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+                // Initialize Bob
+                const r2 = await fetch('/v1/wallets?ownerName=Bob&accountNumber=ACC-002&initialBalance=1000.00&currency=INR', { method: 'POST' });
+                const w2 = await r2.json();
+                destWalletId = w2.id;
+                document.getElementById('destAcc').textContent = w2.accountNumber + ' (' + w2.id.substring(0, 8) + '...)';
+                document.getElementById('destBalance').textContent = '₹' + Number(w2.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+                log(`Initialized Demo Wallets: Alice (₹5000) & Bob (₹1000)`, 'success');
+                refreshLedger();
+            } catch (e) {
+                log('Error initializing wallets: ' + e.message, 'error');
+            }
+        }
+
+        async function refreshBalances() {
+            if (!sourceWalletId || !destWalletId) return;
+            const r1 = await fetch('/v1/wallets/' + sourceWalletId);
+            const w1 = await r1.json();
+            document.getElementById('sourceBalance').textContent = '₹' + Number(w1.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+            const r2 = await fetch('/v1/wallets/' + destWalletId);
+            const w2 = await r2.json();
+            document.getElementById('destBalance').textContent = '₹' + Number(w2.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        }
+
+        async function refreshLedger() {
+            if (!sourceWalletId) return;
+            const r = await fetch('/v1/wallets/' + sourceWalletId + '/ledger');
+            const entries = await r.json();
+            const tbody = document.getElementById('ledgerTableBody');
+            tbody.innerHTML = '';
+            entries.forEach(e => {
+                const tr = document.createElement('tr');
+                const isDebit = e.entryType === 'DEBIT';
+                tr.innerHTML = `
+                    <td>${new Date(e.createdAt).toLocaleTimeString()}</td>
+                    <td>Alice</td>
+                    <td class="${isDebit ? 'badge-debit' : 'badge-credit'}">${e.entryType}</td>
+                    <td>₹${Number(e.amount).toFixed(2)}</td>
+                    <td>₹${Number(e.balanceAfter).toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function executePayment() {
+            const key = document.getElementById('idempotencyKey').value;
+            const amount = parseFloat(document.getElementById('transferAmount').value);
+
+            log(`Sending POST /v1/payments (Amount: ₹${amount}, Key: ${key})`);
+
+            try {
+                const res = await fetch('/v1/payments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': key
+                    },
+                    body: JSON.stringify({
+                        sourceWalletId: sourceWalletId,
+                        destinationWalletId: destWalletId,
+                        amount: amount,
+                        currency: 'INR',
+                        description: 'Simulator transfer'
+                    })
+                });
+
+                const data = await res.json();
+                const isReplayed = res.headers.get('Idempotent-Replayed') === 'true' || data.idempotentReplayed;
+
+                if (res.ok) {
+                    if (isReplayed) {
+                        log(`[IDEMPOTENT REPLAY DETECTED] Safe replay returned from cache! Tx ID: ${data.transactionId} (No double debit occurred)`, 'replay');
+                    } else {
+                        log(`[SETTLED SUCCESS] Tx ID: ${data.transactionId} settled. Source debited, destination credited. Outbox event emitted.`, 'success');
+                    }
+                    await refreshBalances();
+                    await refreshLedger();
+                } else {
+                    log(`[PAYMENT FAILED] Status ${res.status}: ${data.message || 'Error'}`, 'error');
+                }
+            } catch (e) {
+                log('Network error: ' + e.message, 'error');
+            }
+        }
+
+        async function simulateDuplicateBurst() {
+            const burstKey = 'burst-' + Math.random().toString(36).substring(2, 9);
+            document.getElementById('idempotencyKey').value = burstKey;
+            log(`⚡ SIMULATING CONCURRENT BURST: Firing 5 simultaneous requests with identical key: ${burstKey}`, 'warn');
+
+            const promises = [1, 2, 3, 4, 5].map(idx => 
+                fetch('/v1/payments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': burstKey
+                    },
+                    body: JSON.stringify({
+                        sourceWalletId: sourceWalletId,
+                        destinationWalletId: destWalletId,
+                        amount: 100.00,
+                        currency: 'INR',
+                        description: 'Burst hit #' + idx
+                    })
+                }).then(async r => ({
+                    idx,
+                    status: r.status,
+                    replayed: r.headers.get('Idempotent-Replayed'),
+                    data: await r.json()
+                }))
+            );
+
+            const results = await Promise.all(promises);
+            results.forEach(res => {
+                if (res.status === 201) {
+                    log(`Burst #${res.idx} -> 201 CREATED (Original transfer processed)`, 'success');
+                } else if (res.status === 200) {
+                    log(`Burst #${res.idx} -> 200 OK (Safely served from idempotency cache, Idempotent-Replayed: ${res.replayed})`, 'replay');
+                } else if (res.status === 409) {
+                    log(`Burst #${res.idx} -> 409 CONFLICT (Blocked duplicate concurrent execution)`, 'warn');
+                } else {
+                    log(`Burst #${res.idx} -> Status ${res.status}`, 'error');
+                }
+            });
+
+            await refreshBalances();
+            await refreshLedger();
+        }
+
+        window.onload = () => {
+            initWallets();
+        };
+    </script>
+</body>
+</html>
