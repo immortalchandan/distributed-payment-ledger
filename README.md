@@ -1,0 +1,133 @@
+# Distributed Idempotent Payment & Ledger Engine
+
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.0-red.svg)](https://redis.io/)
+[![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-black.svg)](https://kafka.apache.org/)
+
+An enterprise-grade, high-throughput financial payment and ledger microservice engineered to guarantee **strict zero-drift double-entry balance consistency**, **idempotent transaction processing**, and **reliable event dissemination** across distributed nodes.
+
+Designed following real-world architectural patterns utilized in Tier-1 payment processing networks (Visa, Amazon, Razorpay).
+
+---
+
+## 🏗️ Architectural Core
+
+```
+                         [ HTTP POST /v1/payments ]
+                          Header: Idempotency-Key
+                                     │
+                                     ▼
+                   ┌──────────────────────────────────┐
+                   │  Redis Idempotency & Lease Guard │
+                   └─────────────────┬────────────────┘
+                                     │ (Lock acquired)
+                                     ▼
+                   ┌──────────────────────────────────┐
+                   │   Redisson MultiLock Manager     │
+                   │ (Sorted Wallet IDs - No Deadlock)│
+                   └─────────────────┬────────────────┘
+                                     │
+                                     ▼
+                   ┌──────────────────────────────────┐
+                   │     Spring @Transactional        │
+                   │  - Wallet Balance & @Version     │
+                   │  - Balanced Ledger (Debit/Credit)│
+                   │  - Transactional Outbox Event    │
+                   └─────────────────┬────────────────┘
+                                     │
+                                     ▼
+                        PostgreSQL Database (ACID)
+                                     │
+                                     ▼
+                   ┌──────────────────────────────────┐
+                   │ Outbox Poller & Kafka Publisher  │
+                   │     (Retries + DLQ Handling)     │
+                   └─────────────────┬────────────────┘
+                                     │
+                                     ▼
+                         Apache Kafka Event Bus
+```
+
+### 1. Exactly-Once Idempotency Guarantees
+- Every client mutation carries a unique `Idempotency-Key` HTTP header.
+- Redis atomically evaluates incoming keys using `SET NX EX`.
+  - **First Request:** Acquires lease (`__IN_PROGRESS__`), executes processing, and caches finalized response payload (24h TTL).
+  - **Concurrent In-Flight Requests:** Automatically rejected with `409 Conflict` to prevent double execution.
+  - **Replayed Requests:** Instantly served from cache with `Idempotent-Replayed: true` HTTP response header.
+
+### 2. Double-Entry Bookkeeping & Mathematical Invariance
+- Wallets are never updated through naive mutable math.
+- Every successful transfer persists a paired, balanced set of records to `ledger_entries`:
+  - **DEBIT** Source Wallet
+  - **CREDIT** Destination Wallet
+- Invariant: `SUM(Debits) == SUM(Credits)` across the entire system.
+- Wallets incorporate JPA `@Version` optimistic concurrency control to defeat concurrent race conditions without thread starvation.
+
+### 3. Distributed Deadlock Elimination
+- When multiple threads attempt cross-transfers (e.g., A -> B while B -> A), circular lock acquisition can deadlock distributed systems.
+- The engine uses **lexicographically sorted Redisson multi-locks**, ensuring all nodes acquire resource locks in a strictly uniform deterministic order.
+
+### 4. Transactional Outbox Pattern & Eventual Consistency
+- Solves the dual-write problem between PostgreSQL and Apache Kafka without blocking 2-phase commits (2PC).
+- Events (`PAYMENT_SETTLED`, `PAYMENT_FAILED`) are persisted to `outbox_events` in the **same atomic database transaction** as the ledger update.
+- A background publisher polls uncommitted outbox entries, publishes to Kafka topic `payment.events.v1`, and routes poison pills to `payment.events.v1.dlq` after 5 failed attempts.
+
+---
+
+## 🚀 Quickstart & Local Setup
+
+### Prerequisites
+- Java 21 JDK
+- Docker & Docker Compose
+
+### 1. Start Infrastructure
+```bash
+docker-compose up -d
+```
+Spins up:
+- **PostgreSQL 16** (`localhost:5432`)
+- **Redis 7** (`localhost:6379`)
+- **Apache Kafka** (`localhost:9092`)
+
+### 2. Build and Run Application
+```bash
+./gradlew bootRun
+```
+The server will start on port `8080` with Java 21 Virtual Threads enabled.
+
+---
+
+## 📡 API Reference
+
+### 1. Create Wallets
+```bash
+# Create Wallet A
+curl -X POST "http://localhost:8080/v1/wallets?ownerName=Alice&accountNumber=ACC-001&initialBalance=5000.00&currency=INR"
+
+# Create Wallet B
+curl -X POST "http://localhost:8080/v1/wallets?ownerName=Bob&accountNumber=ACC-002&initialBalance=1000.00&currency=INR"
+```
+
+### 2. Transfer Funds (Idempotent)
+```bash
+curl -X POST http://localhost:8080/v1/payments \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: a1b2c3d4-e5f6-7890-abcd-1234567890ab" \
+  -d '{
+    "sourceWalletId": "<WALLET_A_UUID>",
+    "destinationWalletId": "<WALLET_B_UUID>",
+    "amount": 250.00,
+    "currency": "INR",
+    "description": "Invoice payment #1024"
+  }'
+```
+
+Repeating this exact command will return `Idempotent-Replayed: true` without double-debiting.
+
+### 3. Audit Ledger Entries
+```bash
+curl http://localhost:8080/v1/wallets/<WALLET_A_UUID>/ledger
+```
+Returns immutable journal history of all credits and debits with running balance tracking.
