@@ -41,7 +41,7 @@ public class RedissonConfig {
     }
 
     /**
-     * Standalone demo mode: returns dynamic mock RedissonClient using standard Java dynamic proxy.
+     * Standalone demo mode: returns dynamic mock RedissonClient with full Object method handling (hashCode, equals, toString).
      */
     @Bean
     @Primary
@@ -55,11 +55,18 @@ public class RedissonConfig {
                 new InvocationHandler() {
                     @Override
                     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        if ("getLock".equals(method.getName()) && args != null && args.length > 0) {
+                        String name = method.getName();
+                        if ("hashCode".equals(name)) {
+                            return System.identityHashCode(proxy);
+                        } else if ("equals".equals(name)) {
+                            return proxy == (args != null && args.length > 0 ? args[0] : null);
+                        } else if ("toString".equals(name)) {
+                            return "MockRedissonClient@" + Integer.toHexString(System.identityHashCode(proxy));
+                        } else if ("getLock".equals(name) && args != null && args.length > 0) {
                             String lockName = (String) args[0];
                             ReentrantLock internalLock = localLocks.computeIfAbsent(lockName, k -> new ReentrantLock());
                             return createMockRLock(internalLock);
-                        } else if ("getMultiLock".equals(method.getName())) {
+                        } else if ("getMultiLock".equals(name)) {
                             return createMockMultiLock();
                         }
                         return null;
@@ -74,7 +81,13 @@ public class RedissonConfig {
                 new Class<?>[]{RLock.class},
                 (proxy, method, args) -> {
                     String name = method.getName();
-                    if ("tryLock".equals(name)) {
+                    if ("hashCode".equals(name)) {
+                        return System.identityHashCode(proxy);
+                    } else if ("equals".equals(name)) {
+                        return proxy == (args != null && args.length > 0 ? args[0] : null);
+                    } else if ("toString".equals(name)) {
+                        return "MockRLock@" + Integer.toHexString(System.identityHashCode(proxy));
+                    } else if ("tryLock".equals(name)) {
                         if (args != null && args.length == 3) {
                             return internalLock.tryLock((Long) args[0], (TimeUnit) args[2]);
                         }
@@ -98,7 +111,13 @@ public class RedissonConfig {
                 new Class<?>[]{RLock.class},
                 (proxy, method, args) -> {
                     String name = method.getName();
-                    if ("tryLock".equals(name)) {
+                    if ("hashCode".equals(name)) {
+                        return System.identityHashCode(proxy);
+                    } else if ("equals".equals(name)) {
+                        return proxy == (args != null && args.length > 0 ? args[0] : null);
+                    } else if ("toString".equals(name)) {
+                        return "MockMultiLock@" + Integer.toHexString(System.identityHashCode(proxy));
+                    } else if ("tryLock".equals(name)) {
                         return true;
                     } else if ("isHeldByCurrentThread".equals(name)) {
                         return true;

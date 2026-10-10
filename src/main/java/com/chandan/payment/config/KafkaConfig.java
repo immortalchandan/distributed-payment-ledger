@@ -1,11 +1,13 @@
 package com.chandan.payment.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
 @Configuration
+@ConditionalOnProperty(name = "payment.standalone-demo.enabled", havingValue = "false", matchIfMissing = true)
 public class KafkaConfig {
 
     public static final String PAYMENT_EVENTS_TOPIC = "payment.events.v1";
