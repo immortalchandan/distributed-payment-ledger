@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distributed Idempotent Payment & Ledger Engine — Live Interactive Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>AuraPay Core — Distributed Payment & Ledger Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0e17;
-            --bg-secondary: #121826;
-            --card-bg: #182234;
-            --border: #233147;
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --accent: #10b981;
-            --accent-danger: #ef4444;
-            --text-main: #f1f5f9;
+            --bg-base: #06080f;
+            --bg-card: rgba(15, 23, 42, 0.65);
+            --bg-card-hover: rgba(30, 41, 59, 0.7);
+            --border-glow: rgba(56, 189, 248, 0.18);
+            --border-subtle: rgba(255, 255, 255, 0.07);
+            --cyan-accent: #38bdf8;
+            --emerald-accent: #10b981;
+            --indigo-accent: #6366f1;
+            --rose-accent: #f43f5e;
+            --amber-accent: #f59e0b;
+            --text-main: #f8fafc;
             --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
-            --font-sans: 'Plus Jakarta Sans', sans-serif;
         }
 
         * {
@@ -28,341 +33,707 @@
         }
 
         body {
-            background-color: var(--bg-primary);
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
             color: var(--text-main);
             font-family: var(--font-sans);
-            padding: 24px;
             min-height: 100vh;
+            padding: 32px 24px;
+            overflow-x: hidden;
         }
 
-        .header {
-            max-width: 1300px;
-            margin: 0 auto 28px;
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Top Navigation Header */
+        header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
         }
 
-        .header h1 {
-            font-size: 1.6rem;
+        .brand-cluster {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-glyph {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #38bdf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 24px rgba(99, 102, 241, 0.45);
+        }
+
+        .brand-title {
+            font-size: 1.45rem;
             font-weight: 800;
-            background: linear-gradient(135deg, #60a5fa, #34d399);
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .header p {
+        .brand-subtitle {
+            font-size: 0.82rem;
             color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-top: 4px;
-        }
-
-        .badge-bar {
+            margin-top: 2px;
             display: flex;
+            align-items: center;
             gap: 8px;
         }
 
-        .badge {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            padding: 6px 12px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            font-size: 0.72rem;
             font-weight: 600;
-            color: #38bdf8;
+            padding: 4px 10px;
+            border-radius: 9999px;
             font-family: var(--font-mono);
         }
 
-        .layout-grid {
-            max-width: 1300px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #34d399;
+            box-shadow: 0 0 8px #34d399;
+            animation: pulse 2s infinite;
         }
 
-        @media (max-width: 960px) {
-            .layout-grid {
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.35); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .tech-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tech-badge {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            color: #cbd5e1;
+            backdrop-filter: blur(8px);
+        }
+
+        /* Main Grid */
+        .grid-main {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 28px;
+        }
+
+        @media (max-width: 1040px) {
+            .grid-main {
                 grid-template-columns: 1fr;
             }
         }
 
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        /* Glass Cards */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 26px;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
         }
 
-        .card h2 {
-            font-size: 1.15rem;
-            margin-bottom: 16px;
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+        }
+
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #f1f5f9;
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: #f8fafc;
+            gap: 10px;
         }
 
-        .wallets-container {
+        /* Wallets Component */
+        .wallets-cluster {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
+            gap: 18px;
+            margin-bottom: 24px;
         }
 
-        .wallet-box {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
+        .wallet-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.45), rgba(15, 23, 42, 0.75));
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 20px;
             position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .wallet-box.source {
-            border-left: 4px solid #3b82f6;
+        .wallet-card:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-2px);
         }
 
-        .wallet-box.dest {
-            border-left: 4px solid #10b981;
+        .wallet-card.source-wallet {
+            box-shadow: inset 0 0 24px rgba(99, 102, 241, 0.08);
+            border-top: 2px solid #6366f1;
         }
 
-        .wallet-box h3 {
-            font-size: 0.85rem;
-            color: var(--text-muted);
+        .wallet-card.dest-wallet {
+            box-shadow: inset 0 0 24px rgba(16, 185, 129, 0.08);
+            border-top: 2px solid #10b981;
+        }
+
+        .wallet-tag {
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .wallet-box .balance {
-            font-family: var(--font-mono);
-            font-size: 1.6rem;
+            letter-spacing: 0.06em;
             font-weight: 700;
-            margin: 8px 0;
-            color: #ffffff;
-        }
-
-        .wallet-box .acc-num {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: #fff;
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-control:focus {
-            border-color: var(--primary);
-        }
-
-        .btn-row {
             display: flex;
-            gap: 12px;
-            margin-top: 20px;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .wallet-tag.source { color: #818cf8; }
+        .wallet-tag.dest { color: #34d399; }
+
+        .wallet-balance {
+            font-family: var(--font-mono);
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
+        }
+
+        .wallet-meta {
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Controls Form */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            letter-spacing: 0.02em;
+        }
+
+        .input-control {
+            width: 100%;
+            background: rgba(10, 15, 28, 0.75);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #f8fafc;
+            font-family: var(--font-mono);
+            font-size: 0.92rem;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+
+        .input-control:focus {
+            border-color: var(--cyan-accent);
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .key-input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .key-input-row .input-control {
+            color: #38bdf8;
+            font-weight: 500;
+            font-size: 0.84rem;
+        }
+
+        /* Modern Gradient Buttons */
+        .btn-flex {
+            display: flex;
+            gap: 14px;
+            margin-top: 24px;
         }
 
         .btn {
             flex: 1;
-            padding: 12px 18px;
-            border-radius: 6px;
+            padding: 14px 22px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.88rem;
             border: none;
             cursor: pointer;
-            font-weight: 700;
-            font-size: 0.9rem;
             display: inline-flex;
-            justify-content: center;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-gradient-primary {
+            background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(14, 165, 233, 0.35);
+        }
+
+        .btn-gradient-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(14, 165, 233, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn-gradient-danger {
+            background: linear-gradient(135deg, #e11d48, #f59e0b);
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(225, 29, 72, 0.3);
+        }
+
+        .btn-gradient-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(225, 29, 72, 0.45);
+            filter: brightness(1.1);
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: #cbd5e1;
+            padding: 0 18px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
             transition: all 0.2s;
         }
 
-        .btn-primary {
-            background: var(--primary);
-            color: white;
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
         }
 
-        .btn-primary:hover {
-            background: var(--primary-hover);
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .btn-secondary {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-        }
-
-        .btn-secondary:hover {
-            background: #1e293b;
-        }
-
-        .log-terminal {
-            background: #020617;
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: var(--font-mono);
+        .tip-banner {
+            margin-top: 20px;
+            background: rgba(56, 189, 248, 0.05);
+            border: 1px dashed rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
             font-size: 0.8rem;
-            color: #cbd5e1;
-            height: 380px;
-            overflow-y: auto;
-            line-height: 1.6;
+            color: #93c5fd;
+            line-height: 1.45;
         }
 
-        .log-line {
-            margin-bottom: 6px;
-            word-break: break-all;
+        /* Ledger Table */
+        .ledger-box {
+            margin-top: 28px;
         }
 
-        .log-line.success { color: #34d399; }
-        .log-line.replay { color: #38bdf8; font-weight: bold; }
-        .log-line.warn { color: #f59e0b; }
-        .log-line.error { color: #f87171; }
+        .ledger-box-header {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
 
-        .ledger-table-wrap {
-            margin-top: 14px;
-            max-height: 250px;
+        .table-responsive {
+            max-height: 220px;
             overflow-y: auto;
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            background: rgba(10, 15, 28, 0.4);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.8rem;
             font-family: var(--font-mono);
+            font-size: 0.78rem;
         }
 
         th {
-            background: var(--bg-secondary);
-            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text-dim);
+            padding: 10px 14px;
             text-align: left;
-            padding: 8px 12px;
             font-weight: 600;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid var(--border-subtle);
+            position: sticky;
+            top: 0;
+            backdrop-filter: blur(8px);
         }
 
         td {
-            padding: 8px 12px;
-            border-bottom: 1px solid #1f293d;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: #cbd5e1;
         }
 
-        .badge-debit { color: #ef4444; font-weight: bold; }
-        .badge-credit { color: #10b981; font-weight: bold; }
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge-debit {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .badge-credit {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        /* Terminal Console */
+        .terminal-container {
+            background: #04060c;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+        }
+
+        .terminal-bar {
+            background: #090e1a;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .window-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .window-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #eab308; }
+        .dot-green { background: #22c55e; }
+
+        .terminal-title {
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            color: var(--text-dim);
+        }
+
+        .terminal-body {
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            line-height: 1.65;
+            height: 480px;
+            overflow-y: auto;
+            color: #94a3b8;
+        }
+
+        .term-line {
+            margin-bottom: 8px;
+            word-break: break-all;
+            display: flex;
+            gap: 8px;
+        }
+
+        .term-ts {
+            color: var(--text-dim);
+            flex-shrink: 0;
+        }
+
+        .term-text.success { color: #34d399; }
+        .term-text.replay { 
+            color: #38bdf8; 
+            font-weight: 700; 
+            text-shadow: 0 0 12px rgba(56, 189, 248, 0.4); 
+        }
+        .term-text.warn { color: #fbbf24; }
+        .term-text.error { color: #f87171; }
+        .term-text.system { color: #a78bfa; }
+
+        /* Metric Bar */
+        .metric-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .metric-item {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .metric-item .val {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .metric-item .lbl {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <header class="header">
-        <div>
-            <h1>Payment & Ledger Engine Console</h1>
-            <p>Live Interactive Verification Demo — Distributed Locking & Double-Entry Invariance</p>
-        </div>
-        <div class="badge-bar">
-            <span class="badge">JAVA 21 LOOM</span>
-            <span class="badge">SPRING BOOT 3</span>
-            <span class="badge">DOUBLE-ENTRY LEDGER</span>
-            <span class="badge">IDEMPOTENCY: ACTIVE</span>
-        </div>
-    </header>
-
-    <div class="layout-grid">
-        <!-- Interactive Control Panel -->
-        <div class="card">
-            <h2>⚡ Live Transaction Simulator</h2>
-
-            <div class="wallets-container">
-                <div class="wallet-box source">
-                    <h3>Source Wallet (Alice)</h3>
-                    <div class="balance" id="sourceBalance">₹5,000.00</div>
-                    <div class="acc-num" id="sourceAcc">ACC-001 (Loading...)</div>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="brand-cluster">
+                <div class="logo-glyph">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
                 </div>
-                <div class="wallet-box dest">
-                    <h3>Destination Wallet (Bob)</h3>
-                    <div class="balance" id="destBalance">₹1,000.00</div>
-                    <div class="acc-num" id="destAcc">ACC-002 (Loading...)</div>
+                <div>
+                    <h1 class="brand-title">AuraPay Ledger Engine</h1>
+                    <div class="brand-subtitle">
+                        High-Concurrency Distributed Idempotent Settlement Core
+                        <span class="status-pill"><span class="pulse-dot"></span> CLUSTER ONLINE</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>Transfer Amount (INR)</label>
-                <input type="number" id="transferAmount" class="form-control" value="250.00" step="50" min="1">
+            <div class="tech-badges">
+                <span class="tech-badge">JAVA 21 LOOM</span>
+                <span class="tech-badge">SPRING BOOT 3.3.4</span>
+                <span class="tech-badge">REDISSON MULTILOCK</span>
+                <span class="tech-badge">KAFKA OUTBOX</span>
+                <span class="tech-badge">ACID DOUBLE-ENTRY</span>
             </div>
+        </header>
 
-            <div class="form-group">
-                <label>Idempotency-Key (UUID)</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="idempotencyKey" class="form-control" value="idem-key-8392104-prod" readonly>
-                    <button class="btn btn-secondary" onclick="generateNewKey()" style="flex: 0 0 130px;">New Key</button>
+        <!-- Main Workspace -->
+        <div class="grid-main">
+            <!-- Left Panel: Simulator & Ledger -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Interactive Transaction Simulator
+                    </div>
+                </div>
+
+                <!-- Account Balances -->
+                <div class="wallets-cluster">
+                    <div class="wallet-card source-wallet">
+                        <div class="wallet-tag source">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                            Source Account
+                        </div>
+                        <div class="wallet-balance" id="sourceBalance">₹5,000.00</div>
+                        <div class="wallet-meta">
+                            <span>Alice Corp</span>
+                            <span id="sourceAcc">ACC-001 (Loading...)</span>
+                        </div>
+                    </div>
+
+                    <div class="wallet-card dest-wallet">
+                        <div class="wallet-tag dest">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                            Merchant Account
+                        </div>
+                        <div class="wallet-balance" id="destBalance">₹1,000.00</div>
+                        <div class="wallet-meta">
+                            <span>Bob Global</span>
+                            <span id="destAcc">ACC-002 (Loading...)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="input-group">
+                    <label class="input-label">Transfer Amount (INR)</label>
+                    <input type="number" id="transferAmount" class="input-control" value="250.00" step="50" min="1">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Client Idempotency-Key Header</label>
+                    <div class="key-input-row">
+                        <input type="text" id="idempotencyKey" class="input-control" value="idem-key-8392104-prod" readonly>
+                        <button class="btn-glass" onclick="generateNewKey()">Generate Key</button>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="btn-flex">
+                    <button class="btn btn-gradient-primary" onclick="executePayment()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        Execute Transfer
+                    </button>
+                    <button class="btn btn-gradient-danger" onclick="simulateDuplicateBurst()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        Duplicate Burst (5x Race)
+                    </button>
+                </div>
+
+                <div class="tip-banner">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span><b>Idempotency Test:</b> Click <b>Execute Transfer</b> once. Then click it again <i>without generating a new key</i> to watch the engine safely serve the cached receipt without double charging!</span>
+                </div>
+
+                <!-- Ledger Audit Section -->
+                <div class="ledger-box">
+                    <div class="ledger-box-header">
+                        <span>Double-Entry Immutable Ledger Audit</span>
+                        <span style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">DEBITS == CREDITS INVARIANT</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Account</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Post-Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerTableBody">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 18px;">Initializing ledger...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <div class="btn-row">
-                <button class="btn btn-primary" onclick="executePayment()">🚀 Execute Transfer</button>
-                <button class="btn btn-danger" onclick="simulateDuplicateBurst()">⚡ Duplicate Burst (Race Test)</button>
-            </div>
-            
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 14px;">
-                💡 <b>Try this:</b> Click <b>Execute Transfer</b> once, then click it again <i>without changing the Idempotency Key</i> to watch the safe zero-duplicate replay in action!
-            </p>
+            <!-- Right Panel: Live Engine Stream -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        Engine Execution Stream
+                    </div>
+                </div>
 
-            <h2 style="margin-top: 24px; font-size: 1rem;">📜 Live Double-Entry Audit Trail</h2>
-            <div class="ledger-table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Wallet</th>
-                            <th>Type</th>
-                            <th>Amount</th>
-                            <th>Balance After</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ledgerTableBody">
-                        <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No transactions recorded yet</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                <div class="terminal-container">
+                    <div class="terminal-bar">
+                        <div class="window-dots">
+                            <span class="window-dot dot-red"></span>
+                            <span class="window-dot dot-yellow"></span>
+                            <span class="window-dot dot-green"></span>
+                        </div>
+                        <span class="terminal-title">aurapay-engine.log — zsh</span>
+                        <span style="font-family: var(--font-mono); font-size: 0.7rem; color: #34d399;">STREAMING</span>
+                    </div>
+                    <div class="terminal-body" id="terminalLog">
+                        <div class="term-line">
+                            <span class="term-ts">[SYSTEM]</span>
+                            <span class="term-text system">AuraPay JVM Daemon initialized on port 8080 (Java 21 Loom Virtual Threads)</span>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-ts">[SYSTEM]</span>
+                            <span class="term-text">Redis atomic lease manager & idempotency cache active (24h TTL)</span>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-ts">[SYSTEM]</span>
+                            <span class="term-text">Transactional Outbox worker polling for Kafka event publication</span>
+                        </div>
+                    </div>
+                </div>
 
-        <!-- Terminal & Audit Log -->
-        <div class="card">
-            <h2>🖥️ Real-Time Engine Log Stream</h2>
-            <div class="log-terminal" id="terminalLog">
-                <div class="log-line success">[ENGINE READY] Initialized Distributed Payment Engine on port 8080</div>
-                <div class="log-line">[SYSTEM] Idempotency lease manager active</div>
-                <div class="log-line">[SYSTEM] Double-Entry Ledger auditor active</div>
+                <!-- Live Metrics -->
+                <div class="metric-bar">
+                    <div class="metric-item">
+                        <div class="val" id="metricTxCount">0</div>
+                        <div class="lbl">Total Settled</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="val" id="metricReplayCount" style="color: #38bdf8;">0</div>
+                        <div class="lbl">Idempotent Replays</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="val" id="metricConflictsBlocked" style="color: #f59e0b;">0</div>
+                        <div class="lbl">Races Blocked</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="val" style="color: #10b981;">0.00%</div>
+                        <div class="lbl">Ledger Drift</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -370,21 +741,24 @@
     <script>
         let sourceWalletId = null;
         let destWalletId = null;
+        let txSettledCount = 0;
+        let txReplayCount = 0;
+        let racesBlockedCount = 0;
 
         function log(msg, type = '') {
             const term = document.getElementById('terminalLog');
             const time = new Date().toLocaleTimeString();
             const div = document.createElement('div');
-            div.className = 'log-line ' + type;
-            div.textContent = `[${time}] ${msg}`;
+            div.className = 'term-line';
+            div.innerHTML = `<span class="term-ts">[${time}]</span> <span class="term-text ${type}">${msg}</span>`;
             term.appendChild(div);
             term.scrollTop = term.scrollHeight;
         }
 
         function generateNewKey() {
-            const key = 'idem-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now().toString(36);
+            const key = 'idem-' + Math.random().toString(36).substring(2, 8) + '-' + Date.now().toString(36);
             document.getElementById('idempotencyKey').value = key;
-            log('Generated new client Idempotency-Key: ' + key);
+            log(`Client assigned new Idempotency-Key: ${key}`, 'system');
         }
 
         async function initWallets() {
@@ -393,20 +767,20 @@
                 const r1 = await fetch('/v1/wallets?ownerName=Alice&accountNumber=ACC-001&initialBalance=5000.00&currency=INR', { method: 'POST' });
                 const w1 = await r1.json();
                 sourceWalletId = w1.id;
-                document.getElementById('sourceAcc').textContent = w1.accountNumber + ' (' + w1.id.substring(0, 8) + '...)';
+                document.getElementById('sourceAcc').textContent = w1.accountNumber + ' • ' + w1.id.substring(0, 8);
                 document.getElementById('sourceBalance').textContent = '₹' + Number(w1.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
                 // Initialize Bob
                 const r2 = await fetch('/v1/wallets?ownerName=Bob&accountNumber=ACC-002&initialBalance=1000.00&currency=INR', { method: 'POST' });
                 const w2 = await r2.json();
                 destWalletId = w2.id;
-                document.getElementById('destAcc').textContent = w2.accountNumber + ' (' + w2.id.substring(0, 8) + '...)';
+                document.getElementById('destAcc').textContent = w2.accountNumber + ' • ' + w2.id.substring(0, 8);
                 document.getElementById('destBalance').textContent = '₹' + Number(w2.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
-                log(`Initialized Demo Wallets: Alice (₹5000) & Bob (₹1000)`, 'success');
+                log('Initialized Demo Entities: Alice Corp (₹5,000.00) & Bob Global (₹1,000.00)', 'success');
                 refreshLedger();
             } catch (e) {
-                log('Error initializing wallets: ' + e.message, 'error');
+                log('Failed to connect to backend engine: ' + e.message, 'error');
             }
         }
 
@@ -432,8 +806,8 @@
                 const isDebit = e.entryType === 'DEBIT';
                 tr.innerHTML = `
                     <td>${new Date(e.createdAt).toLocaleTimeString()}</td>
-                    <td>Alice</td>
-                    <td class="${isDebit ? 'badge-debit' : 'badge-credit'}">${e.entryType}</td>
+                    <td>Alice Corp</td>
+                    <td><span class="${isDebit ? 'badge-debit' : 'badge-credit'}">${e.entryType}</span></td>
                     <td>₹${Number(e.amount).toFixed(2)}</td>
                     <td>₹${Number(e.balanceAfter).toFixed(2)}</td>
                 `;
@@ -443,9 +817,9 @@
 
         async function executePayment() {
             const key = document.getElementById('idempotencyKey').value;
-            const amount = parseFloat(document.getElementById('transferAmount').value);
+            const amount = parseFloat(document.getElementById('transferAmount').value) || 250.00;
 
-            log(`Sending POST /v1/payments (Amount: ₹${amount}, Key: ${key})`);
+            log(`POST /v1/payments (Amount: ₹${amount.toFixed(2)}, Idempotency-Key: ${key})`);
 
             try {
                 const res = await fetch('/v1/payments', {
@@ -459,7 +833,7 @@
                         destinationWalletId: destWalletId,
                         amount: amount,
                         currency: 'INR',
-                        description: 'Simulator transfer'
+                        description: 'AuraPay transfer'
                     })
                 });
 
@@ -468,25 +842,30 @@
 
                 if (res.ok) {
                     if (isReplayed) {
-                        log(`[IDEMPOTENT REPLAY DETECTED] Safe replay returned from cache! Tx ID: ${data.transactionId} (No double debit occurred)`, 'replay');
+                        txReplayCount++;
+                        document.getElementById('metricReplayCount').textContent = txReplayCount;
+                        log(`⚡ [IDEMPOTENT REPLAY DETECTED] Key hit cached response! Safe receipt returned for Tx ${data.transactionId}. (ZERO duplicate debits)`, 'replay');
                     } else {
-                        log(`[SETTLED SUCCESS] Tx ID: ${data.transactionId} settled. Source debited, destination credited. Outbox event emitted.`, 'success');
+                        txSettledCount++;
+                        document.getElementById('metricTxCount').textContent = txSettledCount;
+                        log(`✓ [SETTLED] Tx ${data.transactionId} settled. Source debited, destination credited. Outbox event emitted to Kafka.`, 'success');
                     }
                     await refreshBalances();
                     await refreshLedger();
                 } else {
-                    log(`[PAYMENT FAILED] Status ${res.status}: ${data.message || 'Error'}`, 'error');
+                    log(`✗ [REJECTED] Status ${res.status}: ${data.message || 'Error'}`, 'error');
                 }
             } catch (e) {
-                log('Network error: ' + e.message, 'error');
+                log('Network exception: ' + e.message, 'error');
             }
         }
 
         async function simulateDuplicateBurst() {
-            const burstKey = 'burst-' + Math.random().toString(36).substring(2, 9);
-            const amount = parseFloat(document.getElementById('transferAmount').value) || 100.00;
+            const burstKey = 'burst-' + Math.random().toString(36).substring(2, 8);
+            const amount = parseFloat(document.getElementById('transferAmount').value) || 250.00;
             document.getElementById('idempotencyKey').value = burstKey;
-            log(`⚡ SIMULATING CONCURRENT BURST: Firing 5 simultaneous requests with identical key: ${burstKey} and Amount: ₹${amount}`, 'warn');
+            
+            log(`⚡ SIMULATING CONCURRENT BURST: Firing 5 simultaneous requests with identical key: ${burstKey} (Amount: ₹${amount.toFixed(2)})`, 'warn');
 
             const promises = [1, 2, 3, 4, 5].map(idx => 
                 fetch('/v1/payments', {
@@ -500,7 +879,7 @@
                         destinationWalletId: destWalletId,
                         amount: amount,
                         currency: 'INR',
-                        description: 'Burst hit #' + idx
+                        description: 'Burst probe #' + idx
                     })
                 }).then(async r => ({
                     idx,
@@ -513,13 +892,19 @@
             const results = await Promise.all(promises);
             results.forEach(res => {
                 if (res.status === 201) {
-                    log(`Burst #${res.idx} -> 201 CREATED (Original transfer processed)`, 'success');
+                    txSettledCount++;
+                    document.getElementById('metricTxCount').textContent = txSettledCount;
+                    log(`Burst Probe #${res.idx} -> 201 CREATED (Initial atomic transaction executed)`, 'success');
                 } else if (res.status === 200) {
-                    log(`Burst #${res.idx} -> 200 OK (Safely served from idempotency cache, Idempotent-Replayed: ${res.replayed})`, 'replay');
+                    txReplayCount++;
+                    document.getElementById('metricReplayCount').textContent = txReplayCount;
+                    log(`Burst Probe #${res.idx} -> 200 OK (Safely served from idempotency cache, Replayed: ${res.replayed})`, 'replay');
                 } else if (res.status === 409) {
-                    log(`Burst #${res.idx} -> 409 CONFLICT (Blocked duplicate concurrent execution)`, 'warn');
+                    racesBlockedCount++;
+                    document.getElementById('metricConflictsBlocked').textContent = racesBlockedCount;
+                    log(`Burst Probe #${res.idx} -> 409 CONFLICT (Blocked concurrent duplicate execution by lease lock)`, 'warn');
                 } else {
-                    log(`Burst #${res.idx} -> Status ${res.status}`, 'error');
+                    log(`Burst Probe #${res.idx} -> Status ${res.status}`, 'error');
                 }
             });
 
