@@ -61,22 +61,7 @@ public class StressTestController {
             dest = walletRepository.findById(destinationWalletId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination wallet not found: " + destinationWalletId));
 
-            // Calibrate source balance to test balance (₹500.00) so UI balance and ledger visibly update
-            source.setBalance(initialBalance);
-            source = walletRepository.save(source);
-
-            LedgerEntry calibration = LedgerEntry.builder()
-                    .transactionId(UUID.randomUUID())
-                    .walletId(source.getId())
-                    .entryType(LedgerEntry.EntryType.CREDIT)
-                    .amount(initialBalance)
-                    .currency(source.getCurrency())
-                    .balanceAfter(initialBalance)
-                    .description("Chaos test calibrated balance (" + testId + ")")
-                    .build();
-            ledgerEntryRepository.save(calibration);
-
-            initialSrcBalance = initialBalance;
+            initialSrcBalance = source.getBalance();
             initialDstBalance = dest.getBalance();
         } else {
             source = Wallet.builder()

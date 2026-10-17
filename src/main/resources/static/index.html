@@ -700,6 +700,10 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                         Interactive Transaction Simulator
                     </div>
+                    <button class="btn-glass" onclick="resetDemoWallets()" title="Reset Demo Wallets to ₹5,000.00 and ₹1,000.00" style="padding: 6px 14px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        Reset Demo Wallets
+                    </button>
                 </div>
 
                 <!-- Account Balances -->
@@ -761,7 +765,7 @@
 
                 <div class="tip-banner">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    <span><b>Idempotency & Concurrency:</b> Click <b>50-Thread Chaos Attack</b> to burst 50 simultaneous threads trying to drain ₹500 via competing ₹200 transfers. Observe how database row-locks serialize operations and keep ledger drift at <b>0.00%</b>!</span>
+                    <span><b>ACID Double-Entry Guarantee:</b> Click <b>50-Thread Chaos Attack</b> to burst 50 simultaneous competing ₹200 transfers against Alice Corp. Observe how database row-locks serialize operations, prevent overdrafts, and preserve <b>0.00%</b> zero-sum ledger drift!</span>
                 </div>
 
                 <!-- Chaos Attack Telemetry Card -->
@@ -1089,10 +1093,10 @@
             statusText.textContent = 'Spawning 50 Threads & Contending on Row Locks...';
             statusText.style.color = '#fbbf24';
 
-            log(`⚡ [CHAOS TEST INITIATED] Spawning 50 concurrent threads against Alice Corp (₹500.00 calibrated) with ₹200 competing transfers...`, 'warn');
+            log(`⚡ [CHAOS TEST INITIATED] Spawning 50 concurrent threads against Alice Corp with ₹200 competing transfers...`, 'warn');
 
             try {
-                const url = `/v1/stress-test/double-spend-attack?concurrency=50&initialBalance=500.00&debitPerThread=200.00&sourceWalletId=${sourceWalletId}&destinationWalletId=${destWalletId}`;
+                const url = `/v1/stress-test/double-spend-attack?concurrency=50&debitPerThread=200.00&sourceWalletId=${sourceWalletId}&destinationWalletId=${destWalletId}`;
                 const res = await fetch(url, {
                     method: 'POST'
                 });
@@ -1117,8 +1121,8 @@
                 statusText.textContent = `Completed in ${data.totalDurationMs}ms (Audit Passed: 0.00% Drift)`;
                 statusText.style.color = '#34d399';
 
-                log(`✓ [CHAOS AUDIT COMPLETE] 50/50 Threads Evaluated: ${data.successfulTransfers} Settled, ${data.blockedInsufficientFunds} Overdrafts Prevented, 0 Drift.`, 'success');
-                log(`✓ [ZERO-SUM INVARIANT] Total Debited = ₹${data.totalDebited.toFixed(2)} == Total Credited = ₹${data.totalCredited.toFixed(2)}. Invariant Drift = ₹${data.ledgerDrift.toFixed(6)}`, 'success');
+                log(`✓ [CHAOS AUDIT COMPLETE] 50/50 Threads Evaluated: ${data.successfulTransfers} Settled (₹${data.totalDebited.toFixed(2)}), ${data.blockedInsufficientFunds} Overdrafts Prevented, 0 Drift.`, 'success');
+                log(`✓ [ZERO-SUM INVARIANT] Total Debited = ₹${data.totalDebited.toFixed(2)} == Total Credited = ₹${data.totalCredited.toFixed(2)}. Invariant Drift = ₹${Number(data.ledgerDrift).toFixed(6)}`, 'success');
 
                 if (data.executionTimelineSample && data.executionTimelineSample.length > 0) {
                     data.executionTimelineSample.forEach(msg => log(`  ↳ ${msg}`, 'system'));
@@ -1134,6 +1138,36 @@
             } finally {
                 btn.disabled = false;
                 btn.style.opacity = '1';
+            }
+        }
+
+        async function resetDemoWallets() {
+            try {
+                log('Resetting demo wallets to ₹5,000.00 & ₹1,000.00...', 'system');
+                const res = await fetch('/v1/wallets/reset', { method: 'POST' });
+                if (!res.ok) {
+                    throw new Error(`Server returned HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                sourceWalletId = data.alice.id;
+                destWalletId = data.bob.id;
+                document.getElementById('sourceBalance').textContent = '₹' + Number(data.alice.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+                document.getElementById('destBalance').textContent = '₹' + Number(data.bob.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+                
+                const chaosCard = document.getElementById('chaosCard');
+                if (chaosCard) chaosCard.style.display = 'none';
+
+                txSettledCount = 0;
+                txReplayCount = 0;
+                racesBlockedCount = 0;
+                document.getElementById('metricTxCount').textContent = '0';
+                document.getElementById('metricReplayCount').textContent = '0';
+                document.getElementById('metricConflictsBlocked').textContent = '0';
+                
+                await refreshLedger();
+                log('✓ Demo wallets reset: Alice Corp (₹5,000.00) & Bob Global (₹1,000.00)', 'success');
+            } catch (err) {
+                log('Reset failed: ' + err.message, 'error');
             }
         }
 
