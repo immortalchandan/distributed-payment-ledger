@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Primary;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -64,10 +66,19 @@ public class RedissonConfig {
                             return "MockRedissonClient@" + Integer.toHexString(System.identityHashCode(proxy));
                         } else if ("getLock".equals(name) && args != null && args.length > 0) {
                             String lockName = (String) args[0];
-                            ReentrantLock internalLock = localLocks.computeIfAbsent(lockName, k -> new ReentrantLock());
+                            ReentrantLock internalLock = localLocks.computeIfAbsent(lockName, k -> new ReentrantLock(true));
                             return createMockRLock(internalLock);
                         } else if ("getMultiLock".equals(name)) {
-                            return createMockMultiLock();
+                            if (args != null && args.length > 0 && args[0] instanceof RLock[]) {
+                                return createMockMultiLock((RLock[]) args[0]);
+                            } else if (args != null && args.length > 0) {
+                                RLock[] locks = new RLock[args.length];
+                                for (int i = 0; i < args.length; i++) {
+                                    locks[i] = (RLock) args[i];
+                                }
+                                return createMockMultiLock(locks);
+                            }
+                            return createMockMultiLock(new RLock[0]);
                         }
                         return null;
                     }
@@ -88,8 +99,10 @@ public class RedissonConfig {
                     } else if ("toString".equals(name)) {
                         return "MockRLock@" + Integer.toHexString(System.identityHashCode(proxy));
                     } else if ("tryLock".equals(name)) {
-                        if (args != null && args.length == 3) {
+                        if (args != null && args.length >= 3) {
                             return internalLock.tryLock((Long) args[0], (TimeUnit) args[2]);
+                        } else if (args != null && args.length >= 2) {
+                            return internalLock.tryLock((Long) args[0], (TimeUnit) args[1]);
                         }
                         return internalLock.tryLock();
                     } else if ("unlock".equals(name)) {
@@ -105,7 +118,7 @@ public class RedissonConfig {
         );
     }
 
-    private static RLock createMockMultiLock() {
+    private static RLock createMockMultiLock(RLock[] locks) {
         return (RLock) Proxy.newProxyInstance(
                 RLock.class.getClassLoader(),
                 new Class<?>[]{RLock.class},
@@ -118,8 +131,44 @@ public class RedissonConfig {
                     } else if ("toString".equals(name)) {
                         return "MockMultiLock@" + Integer.toHexString(System.identityHashCode(proxy));
                     } else if ("tryLock".equals(name)) {
+                        long waitTime = (args != null && args.length >= 1) ? (Long) args[0] : 0L;
+                        TimeUnit unit = (args != null && args.length >= 3) ? (TimeUnit) args[2] :
+                                (args != null && args.length >= 2 ? (TimeUnit) args[1] : TimeUnit.SECONDS);
+                        long deadline = System.currentTimeMillis() + unit.toMillis(waitTime);
+
+                        List<RLock> acquired = new ArrayList<>();
+                        for (RLock lock : locks) {
+                            long remainingMs = deadline - System.currentTimeMillis();
+                            if (remainingMs <= 0) {
+                                for (RLock acq : acquired) {
+                                    if (acq.isHeldByCurrentThread()) acq.unlock();
+                                }
+                                return false;
+                            }
+                            boolean ok = lock.tryLock(remainingMs, TimeUnit.MILLISECONDS);
+                            if (!ok) {
+                                for (RLock acq : acquired) {
+                                    if (acq.isHeldByCurrentThread()) acq.unlock();
+                                }
+                                return false;
+                            }
+                            acquired.add(lock);
+                        }
                         return true;
+                    } else if ("unlock".equals(name)) {
+                        for (int i = locks.length - 1; i >= 0; i--) {
+                            RLock lock = locks[i];
+                            if (lock.isHeldByCurrentThread()) {
+                                lock.unlock();
+                            }
+                        }
+                        return null;
                     } else if ("isHeldByCurrentThread".equals(name)) {
+                        for (RLock lock : locks) {
+                            if (!lock.isHeldByCurrentThread()) {
+                                return false;
+                            }
+                        }
                         return true;
                     }
                     return null;

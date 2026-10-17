@@ -489,6 +489,12 @@
             color: #34d399;
         }
 
+        .badge-fail {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+
         /* Ledger Table */
         .ledger-box {
             margin-top: 28px;
@@ -1107,7 +1113,8 @@
 
                 const data = await res.json();
                 
-                document.getElementById('chaosTotalSent').textContent = `${data.totalRequestsSent} / ${data.totalRequestsSent}`;
+                const evaluated = data.successfulTransfers + data.blockedInsufficientFunds + data.conflictsBlocked + data.otherFailures;
+                document.getElementById('chaosTotalSent').textContent = `${evaluated} / ${data.totalRequestsSent}`;
                 document.getElementById('chaosSettled').textContent = data.successfulTransfers;
                 document.getElementById('chaosOverdraftBlocked').textContent = data.blockedInsufficientFunds;
                 document.getElementById('chaosP99').textContent = data.p99LatencyMs.toFixed(1) + 'ms';
@@ -1118,11 +1125,22 @@
                 document.getElementById('metricConflictsBlocked').textContent = racesBlockedCount;
                 document.getElementById('metricTxCount').textContent = txSettledCount;
 
-                statusText.textContent = `Completed in ${data.totalDurationMs}ms (Audit Passed: 0.00% Drift)`;
-                statusText.style.color = '#34d399';
+                const isPassed = data.zeroSumInvariantPreserved && Number(data.ledgerDrift) === 0;
+                statusText.textContent = `Completed in ${data.totalDurationMs}ms (${isPassed ? 'Audit Passed: 0.0000 Drift' : 'Drift Alert: ' + Number(data.ledgerDrift).toFixed(4)})`;
+                statusText.style.color = isPassed ? '#34d399' : '#f87171';
 
-                log(`✓ [CHAOS AUDIT COMPLETE] 50/50 Threads Evaluated: ${data.successfulTransfers} Settled (₹${data.totalDebited.toFixed(2)}), ${data.blockedInsufficientFunds} Overdrafts Prevented, 0 Drift.`, 'success');
-                log(`✓ [ZERO-SUM INVARIANT] Total Debited = ₹${data.totalDebited.toFixed(2)} == Total Credited = ₹${data.totalCredited.toFixed(2)}. Invariant Drift = ₹${Number(data.ledgerDrift).toFixed(6)}`, 'success');
+                document.getElementById('badgeZeroSum').className = data.zeroSumInvariantPreserved ? 'chaos-badge badge-pass' : 'chaos-badge badge-fail';
+                document.getElementById('badgeZeroSum').textContent = data.zeroSumInvariantPreserved ? '🛡️ ZERO-SUM INVARIANT: PASSED' : '❌ ZERO-SUM INVARIANT: FAILED';
+
+                document.getElementById('badgeNoOverdraft').className = data.negativeBalancePrevented ? 'chaos-badge badge-pass' : 'chaos-badge badge-fail';
+                document.getElementById('badgeNoOverdraft').textContent = data.negativeBalancePrevented ? '🔒 ZERO OVERDRAFT: PASSED' : '❌ OVERDRAFT PREVENTED: FAILED';
+
+                if (isPassed) {
+                    log(`✓ [CHAOS AUDIT COMPLETE] 50/50 Threads Evaluated: ${data.successfulTransfers} Settled (₹${data.totalDebited.toFixed(2)}), ${data.blockedInsufficientFunds} Overdrafts Prevented, 0 Drift.`, 'success');
+                    log(`✓ [ZERO-SUM INVARIANT] Total Debited = ₹${data.totalDebited.toFixed(2)} == Total Credited = ₹${data.totalCredited.toFixed(2)}. Invariant Drift = ₹${Number(data.ledgerDrift).toFixed(6)}`, 'success');
+                } else {
+                    log(`⚠️ [CHAOS AUDIT WARNING] Drift detected: ₹${Number(data.ledgerDrift).toFixed(4)} (${data.successfulTransfers} Settled, ${data.blockedInsufficientFunds} Blocked, ${data.otherFailures} Other)`, 'warn');
+                }
 
                 if (data.executionTimelineSample && data.executionTimelineSample.length > 0) {
                     data.executionTimelineSample.forEach(msg => log(`  ↳ ${msg}`, 'system'));

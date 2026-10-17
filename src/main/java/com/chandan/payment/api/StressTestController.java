@@ -8,6 +8,7 @@ import com.chandan.payment.domain.model.Wallet;
 import com.chandan.payment.domain.repository.LedgerEntryRepository;
 import com.chandan.payment.domain.repository.WalletRepository;
 import com.chandan.payment.service.PaymentService;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ public class StressTestController {
     private final WalletRepository walletRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final PaymentService paymentService;
+    private final EntityManager entityManager;
 
     /**
      * Executes a high-concurrency double-spend attack simulation.
@@ -190,6 +192,9 @@ public class StressTestController {
         long totalDuration = System.currentTimeMillis() - globalStart;
 
         // 3. Post-Test Verification & Double-Entry Ledger Audit
+        // Clear JPA first-level session cache to force fresh database reads
+        entityManager.clear();
+
         Wallet updatedSource = walletRepository.findById(srcId).orElse(source);
         Wallet updatedDest = walletRepository.findById(dstId).orElse(dest);
 
