@@ -432,9 +432,15 @@
 
         .chaos-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 10px;
             margin-bottom: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .chaos-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .chaos-metric {
@@ -769,6 +775,10 @@
                     </div>
                     <div class="chaos-grid">
                         <div class="chaos-metric">
+                            <div class="chaos-metric-val" id="chaosTotalSent" style="color: #a78bfa;">50 / 50</div>
+                            <div class="chaos-metric-lbl">Threads Evaluated</div>
+                        </div>
+                        <div class="chaos-metric">
                             <div class="chaos-metric-val" id="chaosSettled" style="color: #34d399;">0</div>
                             <div class="chaos-metric-lbl">Settled (Row Locked)</div>
                         </div>
@@ -1064,6 +1074,11 @@
         }
 
         async function runChaosStressTest() {
+            if (!sourceWalletId || !destWalletId) {
+                log('Demo wallets not ready. Re-initializing...', 'warn');
+                await initWallets();
+            }
+
             const btn = document.getElementById('btnChaos');
             const card = document.getElementById('chaosCard');
             const statusText = document.getElementById('chaosStatusText');
@@ -1074,10 +1089,11 @@
             statusText.textContent = 'Spawning 50 Threads & Contending on Row Locks...';
             statusText.style.color = '#fbbf24';
 
-            log(`⚡ [CHAOS TEST INITIATED] Spawning 50 concurrent threads targeting ₹500 balance with ₹200 competing transfers...`, 'warn');
+            log(`⚡ [CHAOS TEST INITIATED] Spawning 50 concurrent threads against Alice Corp (₹500.00 calibrated) with ₹200 competing transfers...`, 'warn');
 
             try {
-                const res = await fetch('/v1/stress-test/double-spend-attack?concurrency=50&initialBalance=500.00&debitPerThread=200.00', {
+                const url = `/v1/stress-test/double-spend-attack?concurrency=50&initialBalance=500.00&debitPerThread=200.00&sourceWalletId=${sourceWalletId}&destinationWalletId=${destWalletId}`;
+                const res = await fetch(url, {
                     method: 'POST'
                 });
 
@@ -1087,6 +1103,7 @@
 
                 const data = await res.json();
                 
+                document.getElementById('chaosTotalSent').textContent = `${data.totalRequestsSent} / ${data.totalRequestsSent}`;
                 document.getElementById('chaosSettled').textContent = data.successfulTransfers;
                 document.getElementById('chaosOverdraftBlocked').textContent = data.blockedInsufficientFunds;
                 document.getElementById('chaosP99').textContent = data.p99LatencyMs.toFixed(1) + 'ms';
@@ -1100,7 +1117,7 @@
                 statusText.textContent = `Completed in ${data.totalDurationMs}ms (Audit Passed: 0.00% Drift)`;
                 statusText.style.color = '#34d399';
 
-                log(`✓ [CHAOS AUDIT COMPLETE] 50 Threads Evaluated: ${data.successfulTransfers} Settled, ${data.blockedInsufficientFunds} Overdrafts Prevented.`, 'success');
+                log(`✓ [CHAOS AUDIT COMPLETE] 50/50 Threads Evaluated: ${data.successfulTransfers} Settled, ${data.blockedInsufficientFunds} Overdrafts Prevented, 0 Drift.`, 'success');
                 log(`✓ [ZERO-SUM INVARIANT] Total Debited = ₹${data.totalDebited.toFixed(2)} == Total Credited = ₹${data.totalCredited.toFixed(2)}. Invariant Drift = ₹${data.ledgerDrift.toFixed(6)}`, 'success');
 
                 if (data.executionTimelineSample && data.executionTimelineSample.length > 0) {

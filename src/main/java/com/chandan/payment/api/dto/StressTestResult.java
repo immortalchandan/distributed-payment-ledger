@@ -3,6 +3,7 @@ package com.chandan.payment.api.dto;
 import lombok.*;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -11,6 +12,8 @@ import java.util.List;
 @Builder
 public class StressTestResult {
     private String scenarioName;
+    private UUID sourceWalletId;
+    private UUID destinationWalletId;
     private int concurrencyLevel;
     private BigDecimal initialSourceBalance;
     private BigDecimal transferAmountPerThread;

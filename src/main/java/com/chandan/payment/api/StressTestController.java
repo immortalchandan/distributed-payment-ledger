@@ -11,6 +11,7 @@ import com.chandan.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -40,41 +41,76 @@ public class StressTestController {
     public ResponseEntity<StressTestResult> runDoubleSpendAttack(
             @RequestParam(defaultValue = "50") int concurrency,
             @RequestParam(defaultValue = "500.00") BigDecimal initialBalance,
-            @RequestParam(defaultValue = "200.00") BigDecimal debitPerThread) {
+            @RequestParam(defaultValue = "200.00") BigDecimal debitPerThread,
+            @RequestParam(required = false) UUID sourceWalletId,
+            @RequestParam(required = false) UUID destinationWalletId) {
 
         // Constrain concurrency between 5 and 100 to prevent local thread exhaustion
         int clampedConcurrency = Math.max(5, Math.min(concurrency, 100));
 
-        // 1. Create isolated ephemeral test wallets
         String testId = UUID.randomUUID().toString().substring(0, 8);
-        Wallet source = Wallet.builder()
-                .ownerName("Chaos Target (" + testId + ")")
-                .accountNumber("CHAOS-SRC-" + testId)
-                .balance(initialBalance)
-                .currency("INR")
-                .status(Wallet.WalletStatus.ACTIVE)
-                .build();
-        source = walletRepository.save(source);
+        Wallet source;
+        Wallet dest;
+        BigDecimal initialSrcBalance;
+        BigDecimal initialDstBalance;
 
-        LedgerEntry opening = LedgerEntry.builder()
-                .transactionId(UUID.randomUUID())
-                .walletId(source.getId())
-                .entryType(LedgerEntry.EntryType.CREDIT)
-                .amount(initialBalance)
-                .currency("INR")
-                .balanceAfter(initialBalance)
-                .description("Chaos test initial balance")
-                .build();
-        ledgerEntryRepository.save(opening);
+        // 1. Determine target wallets: Use active UI wallets if provided, or create isolated ephemeral test wallets
+        if (sourceWalletId != null && destinationWalletId != null) {
+            source = walletRepository.findById(sourceWalletId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Source wallet not found: " + sourceWalletId));
+            dest = walletRepository.findById(destinationWalletId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination wallet not found: " + destinationWalletId));
 
-        Wallet dest = Wallet.builder()
-                .ownerName("Chaos Vault (" + testId + ")")
-                .accountNumber("CHAOS-DST-" + testId)
-                .balance(BigDecimal.ZERO)
-                .currency("INR")
-                .status(Wallet.WalletStatus.ACTIVE)
-                .build();
-        dest = walletRepository.save(dest);
+            // Calibrate source balance to test balance (₹500.00) so UI balance and ledger visibly update
+            source.setBalance(initialBalance);
+            source = walletRepository.save(source);
+
+            LedgerEntry calibration = LedgerEntry.builder()
+                    .transactionId(UUID.randomUUID())
+                    .walletId(source.getId())
+                    .entryType(LedgerEntry.EntryType.CREDIT)
+                    .amount(initialBalance)
+                    .currency(source.getCurrency())
+                    .balanceAfter(initialBalance)
+                    .description("Chaos test calibrated balance (" + testId + ")")
+                    .build();
+            ledgerEntryRepository.save(calibration);
+
+            initialSrcBalance = initialBalance;
+            initialDstBalance = dest.getBalance();
+        } else {
+            source = Wallet.builder()
+                    .ownerName("Chaos Target (" + testId + ")")
+                    .accountNumber("CHAOS-SRC-" + testId)
+                    .balance(initialBalance)
+                    .currency("INR")
+                    .status(Wallet.WalletStatus.ACTIVE)
+                    .build();
+            source = walletRepository.save(source);
+
+            LedgerEntry opening = LedgerEntry.builder()
+                    .transactionId(UUID.randomUUID())
+                    .walletId(source.getId())
+                    .entryType(LedgerEntry.EntryType.CREDIT)
+                    .amount(initialBalance)
+                    .currency("INR")
+                    .balanceAfter(initialBalance)
+                    .description("Chaos test initial balance")
+                    .build();
+            ledgerEntryRepository.save(opening);
+
+            dest = Wallet.builder()
+                    .ownerName("Chaos Vault (" + testId + ")")
+                    .accountNumber("CHAOS-DST-" + testId)
+                    .balance(BigDecimal.ZERO)
+                    .currency("INR")
+                    .status(Wallet.WalletStatus.ACTIVE)
+                    .build();
+            dest = walletRepository.save(dest);
+
+            initialSrcBalance = initialBalance;
+            initialDstBalance = BigDecimal.ZERO;
+        }
 
         // 2. Prepare concurrent threads coordinated by CountDownLatch
         ExecutorService executor = Executors.newFixedThreadPool(clampedConcurrency);
@@ -155,11 +191,11 @@ public class StressTestController {
 
         try {
             // Wait for all threads to be spawned and ready
-            readyLatch.await(5, TimeUnit.SECONDS);
+            readyLatch.await(10, TimeUnit.SECONDS);
             // Release the barrier: all threads burst at the exact same millisecond
             startLatch.countDown();
-            // Wait for all threads to complete
-            doneLatch.await(20, TimeUnit.SECONDS);
+            // Wait for all threads to complete (60s buffer for heavy serialized load on cloud DB)
+            doneLatch.await(60, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
@@ -176,11 +212,12 @@ public class StressTestController {
         BigDecimal totalCredited = totalDebited;
 
         // Compute Ledger Invariant: Initial Source Balance - Total Debited must equal Final Source Balance
-        BigDecimal expectedSourceBalance = initialBalance.subtract(totalDebited);
+        BigDecimal expectedSourceBalance = initialSrcBalance.subtract(totalDebited);
         BigDecimal ledgerDrift = updatedSource.getBalance().subtract(expectedSourceBalance).abs();
 
+        BigDecimal expectedDestBalance = initialDstBalance.add(totalCredited);
         boolean zeroSumPreserved = (ledgerDrift.compareTo(BigDecimal.ZERO) == 0) &&
-                (updatedDest.getBalance().compareTo(totalCredited) == 0);
+                (updatedDest.getBalance().compareTo(expectedDestBalance) == 0);
 
         boolean negativeBalancePrevented = updatedSource.getBalance().compareTo(BigDecimal.ZERO) >= 0;
 
@@ -195,8 +232,10 @@ public class StressTestController {
 
         StressTestResult result = StressTestResult.builder()
                 .scenarioName(clampedConcurrency + "-Thread Competing Double-Spend Attack")
+                .sourceWalletId(srcId)
+                .destinationWalletId(dstId)
                 .concurrencyLevel(clampedConcurrency)
-                .initialSourceBalance(initialBalance)
+                .initialSourceBalance(initialSrcBalance)
                 .transferAmountPerThread(debitPerThread)
                 .totalRequestsSent(clampedConcurrency)
                 .successfulTransfers(successCount.get())

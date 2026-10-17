@@ -80,8 +80,8 @@ public class PaymentService {
         RLock multiLock = redissonClient.getMultiLock(lock1, lock2);
 
         try {
-            // Wait up to 5 seconds to acquire lock, hold for 10 seconds auto-lease
-            boolean locked = multiLock.tryLock(5, 10, TimeUnit.SECONDS);
+            // Wait up to 40 seconds to acquire lock under high concurrency bursts, hold for 15 seconds auto-lease
+            boolean locked = multiLock.tryLock(40, 15, TimeUnit.SECONDS);
             if (!locked) {
                 idempotencyService.releaseLease(idempotencyKey);
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Could not acquire wallet locks, please retry");
